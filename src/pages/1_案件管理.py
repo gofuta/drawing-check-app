@@ -80,6 +80,9 @@ with _fc3:
 
 term_filter = None if selected_term == 'すべて' else selected_term
 
+# 担当者一覧はループ外で1回だけ取得
+existing_assignees = gas_sheets.get_all_assignees()
+
 # ── タブ ─────────────────────────────────────────────────
 tab_active, tab_done, tab_new, tab_schedule = st.tabs([
     "  進行中  ", "  完了  ", "  新規追加  ", "  スケジュール  "
@@ -133,8 +136,6 @@ with tab_active:
                     with st.form(key=f"edit_{row}"):
                         st.markdown("**基本情報**")
                         new_pname  = st.text_input("物件名",  value=case.get('project_name', ''), key=f"ep_{row}")
-                        # 担当者: 既存プルダウン or 新規入力
-                        existing_assignees = gas_sheets.get_all_assignees()
                         assignee_opts = existing_assignees + ['--- 新規入力 ---']
                         cur_idx = assignee_opts.index(case.get('assignee', '')) if case.get('assignee') in existing_assignees else 0
                         sel_a = st.selectbox("担当者", assignee_opts, index=cur_idx, key=f"eas_{row}")
@@ -257,8 +258,6 @@ with tab_done:
 with tab_new:
     st.markdown("#### 新しい物件を追加")
     st.caption("商品種別を選択すると、必要な打合せ回数が自動で設定されます。")
-
-    existing_assignees = gas_sheets.get_all_assignees()
 
     c1, c2 = st.columns(2)
     with c1:
