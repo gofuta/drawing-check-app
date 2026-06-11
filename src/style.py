@@ -13,12 +13,28 @@ html, body, [class*="css"] {
 
 /* ── Streamlit標準UI非表示 ── */
 [data-testid="stToolbar"]    { display: none !important; }
-[data-testid="stHeader"]     { display: none !important; }
 [data-testid="stDecoration"] { display: none !important; }
 #MainMenu                    { display: none !important; }
 footer                       { display: none !important; }
 .viewerBadge_container__r5tak { display: none !important; }
 [data-testid="stMainMenu"]   { display: none !important; }
+
+/* ヘッダーは透明化のみ（サイドバー展開ボタンを残すため） */
+[data-testid="stHeader"] {
+    background: transparent !important;
+    border-bottom: none !important;
+    min-height: 0 !important;
+}
+[data-testid="stHeader"] > * { display: none !important; }
+
+/* サイドバー展開ボタンは必ず表示 */
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    background: #0A0A0A !important;
+    border-right: 1px solid rgba(255,255,255,0.12) !important;
+}
+[data-testid="collapsedControl"] svg { fill: #D4D4D4 !important; color: #D4D4D4 !important; }
 
 /* ── ポータルヘッダー ── */
 .portal-header {

@@ -171,6 +171,29 @@ def move_case_term(row_number: int, new_term: str):
     update_case_field(row_number, 'term', new_term)
 
 
+def delete_case(row_number: int):
+    ws = _ensure_sheet(CASE_SHEET_NAME, CASE_HEADER)
+    if ws is None:
+        return
+    ws.delete_rows(row_number)
+
+
+def get_all_assignees() -> list[str]:
+    ws = _ensure_sheet(CASE_SHEET_NAME, CASE_HEADER)
+    if ws is None:
+        return []
+    all_rows = ws.get_all_values()
+    if len(all_rows) <= 1:
+        return []
+    seen = []
+    for row in all_rows[1:]:
+        row = list(row) + [''] * (16 - len(row))
+        a = str(row[CASE_COLS['assignee']]).strip()
+        if a and a not in seen:
+            seen.append(a)
+    return seen
+
+
 # ==================== プロポイント ====================
 
 def get_propoints(term: str | None = None) -> list[dict]:
