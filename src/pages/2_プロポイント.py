@@ -18,13 +18,13 @@ import propoints as pp
 
 st.set_page_config(
     page_title="プロポイント | 設計課ポータル",
-    page_icon="🏆",
+    page_icon=None,
     layout="wide",
 )
 
 st.markdown("""
 <div class="app-header">
-    <h1>🏆 デザインプロポイント</h1>
+    <h1>デザインプロポイント</h1>
     <p>スコア入力・ランキング表示</p>
 </div>
 """, unsafe_allow_html=True)
@@ -35,7 +35,7 @@ if not gas_sheets.is_connected():
 
 # ── サイドバー ────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🏆 プロポイント")
+    st.markdown("### プロポイント")
     terms = gas_sheets.get_all_terms()
     if not terms:
         terms = []
@@ -62,7 +62,7 @@ if view_mode == '入力・編集':
 
     st.markdown(f"**{selected_term if selected_term != 'すべて' else 'すべての期'}** — {len(all_cases)} 件")
     st.markdown("---")
-    st.markdown("#### ➕ スコア入力")
+    st.markdown("#### スコア入力")
 
     col_form, col_result = st.columns([3, 2])
 
@@ -86,7 +86,7 @@ if view_mode == '入力・編集':
         if existing:
             st.caption(f"※ 既存データあり（最終更新: {existing.get('registered_at', '—')}）。保存すると上書きします。")
 
-        if st.button("💾 保存", type="primary", use_container_width=True, key="pp_save"):
+        if st.button("保存", type="primary", use_container_width=True, key="pp_save"):
             score_save = pp.calculate(sel_prod, sel_acc, sel_hrs, sel_type)
             gas_sheets.save_propoint({
                 'project_name' : sel_case,
@@ -129,7 +129,7 @@ if view_mode == '入力・編集':
     # ── 登録済み一覧 ──────────────────────────────────
     if pp_data:
         st.markdown("---")
-        st.markdown("#### 📋 登録済み")
+        st.markdown("#### 登録済み")
         for d in sorted(pp_data, key=lambda x: float(x.get('total_score') or 0), reverse=True):
             bg2, fg2 = pp.status_color(d.get('status', ''))
             c1, c2, c3 = st.columns([3, 1, 1])
@@ -164,7 +164,7 @@ if view_mode == '入力・編集':
 # ランキングモード
 # ====================================================
 else:
-    st.markdown(f"### 🏆 スタッフランキング — {selected_term}")
+    st.markdown(f"### スタッフランキング — {selected_term}")
 
     if not pp_data:
         st.info("まだプロポイントデータがありません。「入力・編集」モードでスコアを登録してください。")
@@ -186,10 +186,9 @@ else:
         reverse=True,
     )
 
-    rank_icons = ['🥇', '🥈', '🥉']
     st.markdown("")
     for i, r in enumerate(ranking):
-        icon = rank_icons[i] if i < 3 else f"{i+1}位"
+        icon = f"{i+1}"
         st.markdown(f"""
         <div class="ranking-row">
             <div class="rank">{icon}</div>
@@ -203,7 +202,7 @@ else:
         """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("#### 📋 全件スコア一覧")
+    st.markdown("#### 全件スコア一覧")
     for d in sorted(pp_data, key=lambda x: float(x.get('total_score') or 0), reverse=True):
         bg2, fg2 = pp.status_color(d.get('status', ''))
         term_b = f'<span class="term-badge">{d["term"]}</span>' if d.get('term') else ''

@@ -22,7 +22,7 @@ import demo_data
 
 st.set_page_config(
     page_title="図面チェック・積算 | 設計課ポータル",
-    page_icon="🔍",
+    page_icon=None,
     layout="wide",
 )
 
@@ -46,29 +46,29 @@ ENV_SHEET_URL  = _get_secret("GOOGLE_SPREADSHEET_URL")
 
 st.markdown("""
 <div class="app-header">
-    <h1>🔍 図面チェック・自動積算</h1>
+    <h1>図面チェック・自動積算</h1>
     <p>建築図面をアップロードするとAIが自動でチェックと積算を行います</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ── サイドバー ────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚙️ 設定")
+    st.markdown("### 設定")
 
     if ENV_API_KEY:
         api_key = ENV_API_KEY
-        st.success("✅ APIキー設定済み")
+        st.success("APIキー設定済み")
     else:
         api_key = st.text_input("Anthropic API Key", type="password")
 
-    project_name = st.text_input("📁 物件名", value="物件名未設定")
+    project_name = st.text_input("物件名", value="物件名未設定")
 
     st.markdown("---")
-    st.markdown("### 📊 スプレッドシート")
+    st.markdown("### スプレッドシート転記")
 
     if ENV_SHEET_URL:
         sheet_url = ENV_SHEET_URL
-        st.success("✅ URL設定済み")
+        st.success("URL設定済み")
     else:
         sheet_url = st.text_input("URL", placeholder="https://docs.google.com/...")
 
@@ -76,7 +76,7 @@ with st.sidebar:
 
     if ENV_CREDS_FILE and Path(ENV_CREDS_FILE).exists():
         credentials_path = ENV_CREDS_FILE
-        st.success("✅ 認証設定済み")
+        st.success("認証設定済み")
     else:
         creds_file = st.file_uploader("サービスアカウントJSON", type=["json"])
         if creds_file:
@@ -89,7 +89,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption("対応形式: PDF / PNG / JPG")
     st.markdown("")
-    if st.button("🎮 デモモードで試す", use_container_width=True):
+    if st.button("デモモードで試す", use_container_width=True):
         st.session_state["result"] = demo_data.get_demo_result()
         st.session_state["project_name"] = "デモ物件"
         st.rerun()
@@ -130,7 +130,7 @@ with col2:
         st.error("APIキーを入力してください（サイドバー）")
         st.stop()
     st.markdown("")
-    if st.button("🔍 チェック・積算を実行", type="primary", use_container_width=True):
+    if st.button("チェック・積算を実行", type="primary", use_container_width=True):
         with st.spinner("AIが図面を解析中...（30秒〜1分程度）"):
             try:
                 result = checker.check_drawing(img_bytes, media_type, api_key)
@@ -147,7 +147,7 @@ if "result" not in st.session_state:
 result = st.session_state["result"]
 pname  = st.session_state.get("project_name", "物件名未設定")
 
-tab_check, tab_estimate = st.tabs(["　📋 図面チェック結果　", "　💴 自動積算　"])
+tab_check, tab_estimate = st.tabs(["  図面チェック結果  ", "  自動積算  "])
 
 # ── チェック結果タブ ──────────────────────────────────
 with tab_check:
@@ -189,7 +189,7 @@ with tab_check:
             </div>
         </div>""", unsafe_allow_html=True)
 
-    st.markdown(f'<div class="summary-box">💬 {summary}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="summary-box">{summary}</div>', unsafe_allow_html=True)
     st.markdown("#### チェック明細")
 
     status_map = {"OK": ("ok", "OK", "badge-ok"), "NG": ("ng", "NG", "badge-ng"), "要確認": ("warn", "要確認", "badge-warn")}
@@ -262,7 +262,7 @@ with tab_estimate:
     out_col1, out_col2 = st.columns(2)
 
     with out_col1:
-        st.markdown("**📊 Googleスプレッドシートに転記**")
+        st.markdown("**Googleスプレッドシートに転記**")
         if not sheet_url:
             st.caption("サイドバーでURLを設定してください")
         elif not credentials_path:
@@ -284,13 +284,13 @@ with tab_estimate:
                         st.error(f"転記エラー: {e}")
 
     with out_col2:
-        st.markdown("**📥 Excel出力**")
+        st.markdown("**Excel出力**")
         if st.button("Excel見積書をダウンロード", use_container_width=True):
             output_path = OUTPUT_DIR / f"見積書_{pname}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             estimator.export_excel(estimate_items, output_path, pname)
             with open(output_path, "rb") as f:
                 st.download_button(
-                    label="⬇️ ダウンロード",
+                    label="ダウンロード",
                     data=f.read(),
                     file_name=output_path.name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

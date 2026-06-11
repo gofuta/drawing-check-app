@@ -15,11 +15,11 @@ style.apply()
 
 import history
 
-st.set_page_config(page_title="解析履歴", page_icon="🗂️", layout="wide")
+st.set_page_config(page_title="解析履歴", page_icon=None, layout="wide")
 
 st.markdown("""
 <div class="app-header">
-    <h1>🗂️ 解析履歴</h1>
+    <h1>解析履歴</h1>
     <p>過去に実行した図面チェックの結果を確認できます。</p>
 </div>
 """, unsafe_allow_html=True)

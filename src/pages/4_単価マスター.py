@@ -16,11 +16,11 @@ style.apply()
 
 CSV_PATH = Path(__file__).parent.parent.parent / "data" / "price_master.csv"
 
-st.set_page_config(page_title="単価マスター", page_icon="📋", layout="wide")
+st.set_page_config(page_title="単価マスター", page_icon=None, layout="wide")
 
 st.markdown("""
 <div class="app-header">
-    <h1>📋 単価マスター編集</h1>
+    <h1>単価マスター編集</h1>
     <p>工種・品目ごとの単価を編集できます。変更後は「保存」を押してください。</p>
 </div>
 """, unsafe_allow_html=True)

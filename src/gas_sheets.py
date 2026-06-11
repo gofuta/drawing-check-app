@@ -15,14 +15,17 @@ _SCOPES = [
 # A(0):物件名 B(1):顧客ID C(2):顧客名 D(3):担当者
 # E(4):第1回 F(5):第2回 G(6):第3回 H(7):第4回 I(8):第5回
 # J(9):ステータス K(10):実行日時 L(11):期名 M(12):完了フラグ
+# N(13):商品種別 O(14):第6回 P(15):第7回
 CASE_COLS = {
     'project_name': 0, 'customer_id': 1, 'customer_name': 2, 'assignee': 3,
     'meet1': 4, 'meet2': 5, 'meet3': 6, 'meet4': 7, 'meet5': 8,
     'status': 9, 'run_at': 10, 'term': 11, 'done': 12,
+    'product': 13, 'meet6': 14, 'meet7': 15,
 }
 CASE_HEADER = ['物件名', '顧客ID', '顧客名', '担当者',
                '第1回', '第2回', '第3回', '第4回', '第5回',
-               'ステータス', '実行日時', '期名', '完了']
+               'ステータス', '実行日時', '期名', '完了',
+               '商品種別', '第6回', '第7回']
 
 # ==================== プロポイントシート 列定義 ====================
 # A:物件名 B:担当者 C:期名 D:商品種別 E:精度% F:工数h G:建物種別
@@ -129,7 +132,7 @@ def get_all_terms() -> list[str]:
         return []
     terms = []
     for row in all_rows[1:]:
-        row = list(row) + [''] * (13 - len(row))
+        row = list(row) + [''] * (16 - len(row))
         t = str(row[CASE_COLS['term']]).strip()
         if t and t not in terms:
             terms.append(t)

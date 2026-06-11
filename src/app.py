@@ -17,31 +17,30 @@ import gas_sheets
 
 st.set_page_config(
     page_title="設計課ポータル | 楓工務店",
-    page_icon="🏠",
+    page_icon=None,
     layout="wide",
 )
 
 # ── ヘッダー ──────────────────────────────────────────
 st.markdown("""
 <div class="portal-header">
-    <div class="company">楓工務店 — 設計課</div>
-    <h1>🏠 設計課ポータル</h1>
-    <div class="subtitle">業務ツールを一か所に集約したポータルサイトです</div>
+    <div class="company-label">楓工務店 設計課</div>
+    <h1>設計課ポータル</h1>
 </div>
 """, unsafe_allow_html=True)
 
 # ── サイドバー ────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🏠 設計課ポータル")
+    st.markdown("### 設計課ポータル")
     st.caption("楓工務店 設計課")
     st.markdown("---")
 
     connected = gas_sheets.is_connected()
     if connected:
-        st.success("✅ スプレッドシート 接続中")
+        st.success("スプレッドシート 接続中")
     else:
-        st.warning("⚠️ スプレッドシート 未接続")
-        st.caption("`.env` に `BPM_SHEET_ID` と `GOOGLE_CREDENTIALS_FILE` を設定してください")
+        st.warning("スプレッドシート 未接続")
+        st.caption("Secrets に BPM_SHEET_ID と gcp_service_account を設定してください")
 
     st.markdown("---")
     st.caption("左のメニューから各ツールを選択")
@@ -52,7 +51,6 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.markdown("""
     <div class="tool-card">
-        <div class="icon">📋</div>
         <h3>案件管理</h3>
         <p>物件の進捗・打合せ日程・担当者を期ごとに管理します</p>
     </div>
@@ -61,7 +59,6 @@ with col1:
 with col2:
     st.markdown("""
     <div class="tool-card">
-        <div class="icon">🏆</div>
         <h3>プロポイント</h3>
         <p>デザインプロポイントのスコア入力・ランキング表示</p>
     </div>
@@ -70,7 +67,6 @@ with col2:
 with col3:
     st.markdown("""
     <div class="tool-card">
-        <div class="icon">🔍</div>
         <h3>図面チェック・積算</h3>
         <p>AIが建築図面を解析して自動チェックと見積積算を行います</p>
     </div>
@@ -79,7 +75,6 @@ with col3:
 with col4:
     st.markdown("""
     <div class="tool-card">
-        <div class="icon">⚡</div>
         <h3>BPM自動入力</h3>
         <p>BPMへのタスク予定を自動登録します（Tampermonkeyスクリプト）</p>
     </div>
@@ -89,7 +84,7 @@ st.markdown("")
 
 # ── クイックスタッツ（接続時のみ） ──────────────────
 if connected:
-    st.markdown("### 📊 現在の状況")
+    st.markdown("### 現在の状況")
     try:
         active_cases = gas_sheets.get_cases(include_done=False)
         done_cases   = gas_sheets.get_cases(include_done=True)
@@ -129,7 +124,7 @@ else:
 
 # ── BPM自動入力案内 ────────────────────────────────────
 st.markdown("---")
-with st.expander("⚡ BPM自動入力について"):
+with st.expander("BPM自動入力について"):
     st.markdown("""
 **BPM自動入力はTampermonkeyスクリプトで動作します。**
 
