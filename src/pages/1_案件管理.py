@@ -1,0 +1,243 @@
+import streamlit as st
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import auth
+auth.check_auth()
+
+import style
+style.apply()
+
+import gas_sheets
+
+st.set_page_config(
+    page_title="案件管理 | 設計課ポータル",
+    page_icon="📋",
+    layout="wide",
+)
+
+# ── ページヘッダー ────────────────────────────────────
+st.markdown("""
+<div class="app-header">
+    <h1>📋 案件管理</h1>
+    <p>物件の進捗・打合せ日程・担当者を期ごとに管理します</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ── 接続チェック ─────────────────────────────────────
+if not gas_sheets.is_connected():
+    st.error("スプレッドシートに接続できません。`.env` の `BPM_SHEET_ID` と `GOOGLE_CREDENTIALS_FILE` を確認してください。")
+    st.stop()
+
+# ── ヘルパー ─────────────────────────────────────────
+MEETING_LABELS = ['①', '②', '③', '④', '⑤']
+STATUS_CHIP = {
+    '完了'   : 'chip-ok',
+    '実行中' : 'chip-running',
+    '要確認' : 'chip-warn',
+    'エラー' : 'chip-error',
+}
+
+
+def _pip_html(dates: list) -> str:
+    pips = []
+    for i, label in enumerate(MEETING_LABELS):
+        filled = bool(dates[i]) if i < len(dates) else False
+        cls = 'pip-done' if filled else 'pip-empty'
+        pips.append(f'<span class="progress-pip {cls}">{label}</span>')
+    return ''.join(pips)
+
+
+def _status_html(status: str) -> str:
+    cls = STATUS_CHIP.get(status, 'chip-none')
+    return f'<span class="status-chip {cls}">{status or "未実行"}</span>'
+
+
+def _meet_dates(case: dict) -> list:
+    return [case.get(f'meet{i}', '') for i in range(1, 6)]
+
+
+# ── サイドバー（期管理） ───────────────────────────────
+with st.sidebar:
+    st.markdown("### 📋 案件管理")
+    st.markdown("---")
+
+    terms = gas_sheets.get_all_terms()
+    if not terms:
+        terms = []
+
+    term_options = ['すべて'] + terms
+    selected_term = st.selectbox("表示する期", term_options, index=0)
+
+    st.markdown("---")
+    st.markdown("**新しい期を追加**")
+    new_term = st.text_input("期名", placeholder="例: 2026年度上期", label_visibility="collapsed")
+    if st.button("追加", use_container_width=True) and new_term:
+        st.session_state['_pending_term'] = new_term
+        st.success(f"「{new_term}」を登録しました。新規物件追加時に選択できます。")
+
+    st.markdown("---")
+    st.caption("← ホームに戻るには左上のホームボタンを使用")
+
+# ── タブ（進行中 / 完了） ─────────────────────────────
+tab_active, tab_done, tab_new = st.tabs(["　⚙️ 進行中　", "　✅ 完了　", "　＋ 新規追加　"])
+
+# ====================================================
+# 進行中タブ
+# ====================================================
+with tab_active:
+    term_filter = None if selected_term == 'すべて' else selected_term
+    cases = gas_sheets.get_cases(term=term_filter, include_done=False)
+
+    if not cases:
+        st.info("進行中の物件がありません。" + (" 別の期を選択するか「新規追加」タブから追加してください。" if term_filter else "「新規追加」タブから物件を追加してください。"))
+    else:
+        st.caption(f"{len(cases)} 件")
+
+    for case in cases:
+        dates = _meet_dates(case)
+        pips  = _pip_html(dates)
+        stat  = _status_html(case.get('status', ''))
+        term_b = f'<span class="term-badge">{case["term"]}</span>' if case.get('term') else ''
+
+        with st.container():
+            st.markdown(f"""
+            <div class="project-card">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div>
+                        <div class="pname">{case['project_name']}{term_b}</div>
+                        <div class="passign">担当: {case.get('assignee', '—')}{f" ｜ {case.get('customer_name','')}" if case.get('customer_name') else ''}</div>
+                    </div>
+                    <div style="text-align:right;">{stat}</div>
+                </div>
+                <div style="margin-top:0.75rem;">{pips}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.expander("詳細・編集"):
+                row = case['_row']
+                c1, c2 = st.columns(2)
+
+                with c1:
+                    with st.form(key=f"edit_{row}"):
+                        st.markdown("**基本情報**")
+                        new_pname  = st.text_input("物件名",  value=case.get('project_name', ''))
+                        new_assign = st.text_input("担当者",  value=case.get('assignee', ''))
+                        new_cid    = st.text_input("顧客ID",  value=case.get('customer_id', ''))
+                        new_cname  = st.text_input("顧客名",  value=case.get('customer_name', ''))
+                        term_choices = terms if terms else ['期未設定']
+                        term_cur_idx = term_choices.index(case['term']) if case.get('term') in term_choices else 0
+                        new_term_v = st.selectbox("期名", term_choices, index=term_cur_idx)
+                        if st.form_submit_button("保存", use_container_width=True):
+                            updated = dict(case)
+                            updated.update({
+                                'project_name': new_pname, 'assignee': new_assign,
+                                'customer_id': new_cid, 'customer_name': new_cname,
+                                'term': new_term_v,
+                            })
+                            gas_sheets.save_case(updated, row_number=row)
+                            st.success("保存しました")
+                            st.rerun()
+
+                with c2:
+                    with st.form(key=f"dates_{row}"):
+                        st.markdown("**打合せ日程**")
+                        d = dates
+                        nd1 = st.text_input("第1回", value=str(d[0]) if d[0] else '')
+                        nd2 = st.text_input("第2回", value=str(d[1]) if d[1] else '')
+                        nd3 = st.text_input("第3回", value=str(d[2]) if d[2] else '')
+                        nd4 = st.text_input("第4回", value=str(d[3]) if d[3] else '')
+                        nd5 = st.text_input("第5回", value=str(d[4]) if d[4] else '')
+                        if st.form_submit_button("日程保存", use_container_width=True):
+                            updated = dict(case)
+                            updated.update({'meet1': nd1, 'meet2': nd2, 'meet3': nd3, 'meet4': nd4, 'meet5': nd5})
+                            gas_sheets.save_case(updated, row_number=row)
+                            st.success("保存しました")
+                            st.rerun()
+
+                st.markdown("")
+                action_c1, action_c2 = st.columns(2)
+                with action_c1:
+                    if selected_term != 'すべて' and len(terms) > 1:
+                        move_target = st.selectbox(
+                            "別の期へ移動",
+                            [t for t in terms if t != case.get('term')],
+                            key=f"mv_{row}",
+                        )
+                        if st.button("期を移動", key=f"mvbtn_{row}", use_container_width=True):
+                            gas_sheets.move_case_term(row, move_target)
+                            st.success(f"「{move_target}」に移動しました")
+                            st.rerun()
+                with action_c2:
+                    st.markdown("")
+                    if st.button("✅ 完了にする", key=f"done_{row}", type="primary", use_container_width=True):
+                        gas_sheets.mark_case_done(row, done=True)
+                        st.success("完了にしました")
+                        st.rerun()
+
+# ====================================================
+# 完了タブ
+# ====================================================
+with tab_done:
+    done_cases = gas_sheets.get_cases(term=term_filter, include_done=True)
+
+    if not done_cases:
+        st.info("完了物件はありません。")
+    else:
+        st.caption(f"{len(done_cases)} 件")
+        for case in done_cases:
+            row = case['_row']
+            term_b = f'<span class="term-badge">{case["term"]}</span>' if case.get('term') else ''
+            st.markdown(f"""
+            <div class="project-card" style="opacity:0.75;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div class="pname">{case['project_name']}{term_b}</div>
+                        <div class="passign">担当: {case.get('assignee', '—')}</div>
+                    </div>
+                    <span class="status-chip chip-ok">完了</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            with st.expander("元に戻す / 削除"):
+                if st.button("進行中に戻す", key=f"undone_{row}", use_container_width=True):
+                    gas_sheets.mark_case_done(row, done=False)
+                    st.success("進行中に戻しました")
+                    st.rerun()
+
+# ====================================================
+# 新規追加タブ
+# ====================================================
+with tab_new:
+    st.markdown("#### 新しい物件を追加")
+    with st.form("add_case"):
+        c1, c2 = st.columns(2)
+        with c1:
+            a_pname  = st.text_input("物件名 *")
+            a_assign = st.text_input("担当者 *")
+            a_cid    = st.text_input("顧客ID（BPM）")
+            a_cname  = st.text_input("顧客名")
+        with c2:
+            a_term   = st.selectbox("期名", terms if terms else ['期未設定'])
+            a_meet1  = st.text_input("第1回打合せ日", placeholder="YYYY-MM-DD")
+            a_meet2  = st.text_input("第2回打合せ日", placeholder="YYYY-MM-DD")
+            a_meet3  = st.text_input("第3回打合せ日", placeholder="YYYY-MM-DD")
+
+        submitted = st.form_submit_button("追加", type="primary", use_container_width=True)
+        if submitted:
+            if not a_pname or not a_assign:
+                st.error("物件名と担当者は必須です")
+            else:
+                gas_sheets.save_case({
+                    'project_name': a_pname, 'assignee': a_assign,
+                    'customer_id': a_cid, 'customer_name': a_cname,
+                    'meet1': a_meet1, 'meet2': a_meet2, 'meet3': a_meet3,
+                    'meet4': '', 'meet5': '',
+                    'status': '', 'run_at': '', 'term': a_term, 'done': '',
+                })
+                st.success(f"「{a_pname}」を追加しました")
+                st.rerun()

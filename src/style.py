@@ -162,6 +162,134 @@ footer                       { display: none !important; }
 }
 
 hr { border-color: #e5e7eb !important; margin: 1.5rem 0 !important; }
+
+/* ── ポータルホーム ── */
+.portal-header {
+    background: linear-gradient(135deg, #0f2942 0%, #1a4a7a 60%, #0a5f4a 100%);
+    padding: 2.5rem 2.5rem 2rem;
+    border-radius: 20px;
+    margin-bottom: 2rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+.portal-header::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+}
+.portal-header .company  { font-size: 0.8rem; opacity: 0.65; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; }
+.portal-header h1        { font-size: 2.2rem; font-weight: 700; margin: 0.4rem 0 0.5rem; letter-spacing: -0.02em; }
+.portal-header .subtitle { font-size: 0.9rem; opacity: 0.75; }
+
+.tool-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+    border: 1px solid #e5e7eb;
+    height: 100%;
+    transition: box-shadow 0.2s, transform 0.1s;
+    cursor: default;
+}
+.tool-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.12); transform: translateY(-2px); }
+.tool-card .icon { font-size: 2rem; margin-bottom: 0.6rem; }
+.tool-card h3    { font-size: 1rem; font-weight: 700; color: #111827; margin: 0 0 0.3rem; }
+.tool-card p     { font-size: 0.82rem; color: #6b7280; margin: 0; line-height: 1.5; }
+
+/* ── 案件管理 ── */
+.project-card {
+    background: white;
+    border-radius: 14px;
+    padding: 1.2rem 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    border: 1px solid #e5e7eb;
+    margin-bottom: 0.75rem;
+    position: relative;
+}
+.project-card .pname  { font-size: 1rem; font-weight: 600; color: #111827; }
+.project-card .passign { font-size: 0.82rem; color: #6b7280; margin-top: 0.1rem; }
+.progress-pip {
+    display: inline-block;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 28px;
+    text-align: center;
+    margin-right: 4px;
+}
+.pip-done  { background: #1a4a7a; color: white; }
+.pip-empty { background: #e5e7eb; color: #9ca3af; }
+
+.status-chip {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    border-radius: 20px;
+}
+.chip-ok      { background: #dcfce7; color: #166534; }
+.chip-running { background: #dbeafe; color: #1e40af; }
+.chip-warn    { background: #fef3c7; color: #92400e; }
+.chip-error   { background: #fee2e2; color: #991b1b; }
+.chip-none    { background: #f3f4f6; color: #374151; }
+
+.term-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 8px;
+    background: #ede9fe;
+    color: #5b21b6;
+    margin-left: 0.5rem;
+}
+
+/* ── プロポイント ── */
+.pp-score-card {
+    background: linear-gradient(135deg, #0f2942 0%, #1a4a7a 100%);
+    border-radius: 16px;
+    padding: 1.5rem;
+    color: white;
+    text-align: center;
+}
+.pp-score-card .score-val { font-size: 2.8rem; font-weight: 700; letter-spacing: -0.03em; }
+.pp-score-card .score-lbl { font-size: 0.8rem; opacity: 0.7; }
+.pp-breakdown {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1rem;
+    font-size: 0.85rem;
+}
+.pp-breakdown .row { display: flex; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px solid #e5e7eb; }
+.pp-breakdown .row:last-child { border-bottom: none; }
+
+.pp-status {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.5rem 1.2rem;
+    border-radius: 30px;
+    margin-top: 0.8rem;
+}
+
+.ranking-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.ranking-row .rank { font-size: 1.2rem; font-weight: 700; width: 30px; text-align: center; }
+.ranking-row .name { flex: 1; font-size: 0.95rem; font-weight: 600; }
+.ranking-row .pts  { font-size: 1.1rem; font-weight: 700; color: #1a4a7a; }
 </style>
 
 <script>
