@@ -14,6 +14,9 @@ auth.check_auth()
 import style
 style.apply()
 
+import nav
+nav.render()
+
 import checker
 import estimator
 import sheets_exporter
@@ -51,50 +54,52 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── サイドバー ────────────────────────────────────────
-with st.sidebar:
-    st.markdown("### 設定")
-
-    if ENV_API_KEY:
-        api_key = ENV_API_KEY
-        st.success("APIキー設定済み")
-    else:
-        api_key = st.text_input("Anthropic API Key", type="password")
-
-    project_name = st.text_input("物件名", value="物件名未設定")
-
-    st.markdown("---")
-    st.markdown("### スプレッドシート転記")
-
-    if ENV_SHEET_URL:
-        sheet_url = ENV_SHEET_URL
-        st.success("URL設定済み")
-    else:
-        sheet_url = st.text_input("URL", placeholder="https://docs.google.com/...")
-
-    sheet_name = st.text_input("シート名", value="積算")
-
-    if ENV_CREDS_FILE and Path(ENV_CREDS_FILE).exists():
-        credentials_path = ENV_CREDS_FILE
-        st.success("認証設定済み")
-    else:
-        creds_file = st.file_uploader("サービスアカウントJSON", type=["json"])
-        if creds_file:
-            creds_save_path = OUTPUT_DIR / "service_account_tmp.json"
-            creds_save_path.write_bytes(creds_file.read())
-            credentials_path = str(creds_save_path)
+# ── 設定パネル（必要時のみ開く） ──────────────────────────
+_settings_label = "設定（APIキー・スプレッドシート）" + (" — 設定済み" if ENV_API_KEY else " — 未設定")
+with st.expander(_settings_label, expanded=not bool(ENV_API_KEY)):
+    cfg1, cfg2 = st.columns(2)
+    with cfg1:
+        st.markdown("**APIキー**")
+        if ENV_API_KEY:
+            api_key = ENV_API_KEY
+            st.success("環境変数から取得済み")
         else:
-            credentials_path = ""
+            api_key = st.text_input("Anthropic API Key", type="password", key="cfg_api_key")
 
-    st.markdown("---")
-    st.caption("対応形式: PDF / PNG / JPG")
-    st.markdown("")
+    with cfg2:
+        st.markdown("**スプレッドシート転記**")
+        if ENV_SHEET_URL:
+            sheet_url = ENV_SHEET_URL
+            st.success("URLは環境変数から取得済み")
+        else:
+            sheet_url = st.text_input("URL", placeholder="https://docs.google.com/...", key="cfg_sheet_url")
+
+        sheet_name = st.text_input("シート名", value="積算", key="cfg_sheet_name")
+
+        if ENV_CREDS_FILE and Path(ENV_CREDS_FILE).exists():
+            credentials_path = ENV_CREDS_FILE
+            st.success("認証情報は環境変数から取得済み")
+        else:
+            creds_file = st.file_uploader("サービスアカウントJSON", type=["json"], key="cfg_creds")
+            if creds_file:
+                creds_save_path = OUTPUT_DIR / "service_account_tmp.json"
+                creds_save_path.write_bytes(creds_file.read())
+                credentials_path = str(creds_save_path)
+            else:
+                credentials_path = ""
+
+# ── 物件名 + デモモード ───────────────────────────────────
+mc1, mc2, mc_sp = st.columns([3, 1.5, 5.5])
+with mc1:
+    project_name = st.text_input("物件名", value="物件名未設定", placeholder="解析する物件名を入力")
+with mc2:
+    st.markdown('<div style="margin-top:1.72rem;"></div>', unsafe_allow_html=True)
     if st.button("デモモードで試す", use_container_width=True):
         st.session_state["result"] = demo_data.get_demo_result()
         st.session_state["project_name"] = "デモ物件"
         st.rerun()
 
-# ── メインエリア ──────────────────────────────────────
+# ── ファイルアップロード ──────────────────────────────────
 uploaded = st.file_uploader(
     "図面をドラッグ＆ドロップ、またはクリックして選択",
     type=["pdf", "png", "jpg", "jpeg"],
@@ -102,9 +107,9 @@ uploaded = st.file_uploader(
 
 if uploaded is None:
     st.markdown("""
-    <div style="text-align:center; padding:3rem; color:#94a3b8; font-size:0.95rem;">
-        図面ファイルをアップロードするか、サイドバーの「デモモードで試す」をお使いください
-    </div>
+<div style="text-align:center;padding:2.5rem;color:#ABABAB;font-size:0.92rem;">
+    図面ファイルをアップロードするか、「デモモードで試す」をお使いください
+</div>
     """, unsafe_allow_html=True)
     st.stop()
 
@@ -127,7 +132,7 @@ with col1:
 
 with col2:
     if not api_key:
-        st.error("APIキーを入力してください（サイドバー）")
+        st.error("APIキーを入力してください（上の設定パネルを開いてください）")
         st.stop()
     st.markdown("")
     if st.button("チェック・積算を実行", type="primary", use_container_width=True):
@@ -149,7 +154,7 @@ pname  = st.session_state.get("project_name", "物件名未設定")
 
 tab_check, tab_estimate = st.tabs(["  図面チェック結果  ", "  自動積算  "])
 
-# ── チェック結果タブ ──────────────────────────────────
+# ── チェック結果タブ ──────────────────────────────────────
 with tab_check:
     drawing_type = result.get("drawing_type", "不明")
     score        = result.get("overall_score", 0)
@@ -171,25 +176,26 @@ with tab_check:
     with c2:
         st.markdown(f"""<div class="metric-card {score_class}">
             <div class="metric-label">完成度スコア</div>
-            <div class="metric-value" style="color:{score_color};">{score}<span style="font-size:1rem;color:#9ca3af;"> / 100</span></div>
+            <div class="metric-value" style="color:{score_color};">{score}<span style="font-size:1rem;color:#ABABAB;"> / 100</span></div>
             <div class="score-bar-bg"><div class="score-bar-fill" style="width:{score}%;background:{score_color};"></div></div>
         </div>""", unsafe_allow_html=True)
     with c3:
         st.markdown(f"""<div class="metric-card bad">
             <div class="metric-label">NG件数</div>
-            <div class="metric-value" style="color:#ef4444;">{ng_count}<span style="font-size:1rem;color:#9ca3af;"> 件</span></div>
+            <div class="metric-value" style="color:#ef4444;">{ng_count}<span style="font-size:1rem;color:#ABABAB;"> 件</span></div>
         </div>""", unsafe_allow_html=True)
     with c4:
         st.markdown(f"""<div class="metric-card warn">
             <div class="metric-label">要確認 / OK</div>
             <div class="metric-value" style="font-size:1.2rem;">
                 <span style="color:#f59e0b;">{warn_count}</span>
-                <span style="font-size:0.9rem;color:#9ca3af;"> / </span>
+                <span style="font-size:0.9rem;color:#ABABAB;"> / </span>
                 <span style="color:#22c55e;">{ok_count}</span>
             </div>
         </div>""", unsafe_allow_html=True)
 
-    st.markdown(f'<div class="summary-box">{summary}</div>', unsafe_allow_html=True)
+    if summary:
+        st.markdown(f'<div class="summary-box">{summary}</div>', unsafe_allow_html=True)
     st.markdown("#### チェック明細")
 
     status_map = {"OK": ("ok", "OK", "badge-ok"), "NG": ("ng", "NG", "badge-ng"), "要確認": ("warn", "要確認", "badge-warn")}
@@ -201,17 +207,17 @@ with tab_check:
         sev_cls = sev_map.get(sev, "badge-low")
         comment = item.get("comment", "")
         st.markdown(f"""
-        <div class="check-item {cls}">
-            <span class="check-badge {badge_cls}">{label}</span>
-            <span class="check-badge {sev_cls}">{sev}</span>
-            <div class="check-text">
-                <div class="check-category">{item['category']}</div>
-                <div class="check-title">{item['item']}</div>
-                {"<div class='check-comment'>" + comment + "</div>" if comment else ""}
-            </div>
-        </div>""", unsafe_allow_html=True)
+<div class="check-item {cls}">
+    <span class="check-badge {badge_cls}">{label}</span>
+    <span class="check-badge {sev_cls}">{sev}</span>
+    <div class="check-text">
+        <div class="check-category">{item['category']}</div>
+        <div class="check-title">{item['item']}</div>
+        {"<div class='check-comment'>" + comment + "</div>" if comment else ""}
+    </div>
+</div>""", unsafe_allow_html=True)
 
-# ── 積算タブ ──────────────────────────────────────────
+# ── 積算タブ ──────────────────────────────────────────────
 with tab_estimate:
     import pandas as pd
     quantities = result.get("quantities", {})
@@ -230,10 +236,10 @@ with tab_estimate:
         with q_cols[idx]:
             display = f"{val}{unit}" if val is not None else "—"
             st.markdown(f"""
-            <div class="metric-card" style="text-align:center;border-left:none;border-top:3px solid #1a4a7a;">
-                <div class="metric-label">{label}</div>
-                <div class="metric-value" style="font-size:1.3rem;">{display}</div>
-            </div>""", unsafe_allow_html=True)
+<div class="metric-card" style="text-align:center;border-left:none;border-top:3px solid #171717;">
+    <div class="metric-label">{label}</div>
+    <div class="metric-value" style="font-size:1.3rem;">{display}</div>
+</div>""", unsafe_allow_html=True)
 
     st.markdown("---")
     estimate_items = estimator.estimate_from_quantities(quantities)
@@ -252,11 +258,11 @@ with tab_estimate:
     total = sum(i["金額"] for i in estimate_items)
     tax   = int(total * 0.1)
     st.markdown(f"""
-    <div class="total-box">
-        <div class="label">税込合計（概算）</div>
-        <div class="amount">¥{total + tax:,}</div>
-        <div class="sub">税抜 ¥{total:,}　＋　消費税 ¥{tax:,}</div>
-    </div>""", unsafe_allow_html=True)
+<div class="total-box">
+    <div class="label">税込合計（概算）</div>
+    <div class="amount">¥{total + tax:,}</div>
+    <div class="sub">税抜 ¥{total:,}　＋　消費税 ¥{tax:,}</div>
+</div>""", unsafe_allow_html=True)
 
     st.markdown("---")
     out_col1, out_col2 = st.columns(2)
@@ -264,9 +270,9 @@ with tab_estimate:
     with out_col1:
         st.markdown("**Googleスプレッドシートに転記**")
         if not sheet_url:
-            st.caption("サイドバーでURLを設定してください")
+            st.caption("設定パネルでURLを設定してください")
         elif not credentials_path:
-            st.caption("サイドバーで認証JSONを設定してください")
+            st.caption("設定パネルで認証JSONを設定してください")
         else:
             if st.button("スプレッドシートに転記", type="primary", use_container_width=True):
                 with st.spinner("転記中..."):

@@ -13,6 +13,9 @@ auth.check_auth()
 import style
 style.apply()
 
+import nav
+nav.render()
+
 import history
 
 st.set_page_config(page_title="解析履歴", page_icon=None, layout="wide")
@@ -51,15 +54,15 @@ c1, c2, c3, c4 = st.columns(4)
 with c1:
     st.markdown(f'<div class="metric-card"><div class="metric-label">図面種別</div><div class="metric-value" style="font-size:1.2rem;">{drawing_type}</div></div>', unsafe_allow_html=True)
 with c2:
-    st.markdown(f'<div class="metric-card {score_class}"><div class="metric-label">完成度スコア</div><div class="metric-value" style="color:{score_color};">{score}<span style="font-size:1rem;color:#9ca3af;"> / 100</span></div><div class="score-bar-bg"><div class="score-bar-fill" style="width:{score}%;background:{score_color};"></div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card {score_class}"><div class="metric-label">完成度スコア</div><div class="metric-value" style="color:{score_color};">{score}<span style="font-size:1rem;color:#ABABAB;"> / 100</span></div><div class="score-bar-bg"><div class="score-bar-fill" style="width:{score}%;background:{score_color};"></div></div></div>', unsafe_allow_html=True)
 with c3:
-    st.markdown(f'<div class="metric-card bad"><div class="metric-label">NG件数</div><div class="metric-value" style="color:#ef4444;">{ng_count}<span style="font-size:1rem;color:#9ca3af;"> 件</span></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card bad"><div class="metric-label">NG件数</div><div class="metric-value" style="color:#ef4444;">{ng_count}<span style="font-size:1rem;color:#ABABAB;"> 件</span></div></div>', unsafe_allow_html=True)
 with c4:
-    st.markdown(f'<div class="metric-card warn"><div class="metric-label">要確認件数</div><div class="metric-value" style="color:#f59e0b;">{warn_count}<span style="font-size:1rem;color:#9ca3af;"> 件</span></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card warn"><div class="metric-label">要確認件数</div><div class="metric-value" style="color:#f59e0b;">{warn_count}<span style="font-size:1rem;color:#ABABAB;"> 件</span></div></div>', unsafe_allow_html=True)
 
 summary = result.get("summary", "")
 if summary:
-    st.markdown(f'<div class="summary-box">💬 {summary}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="summary-box">{summary}</div>', unsafe_allow_html=True)
 
 st.markdown("#### チェック明細")
 status_map = {"OK": ("ok", "OK", "badge-ok"), "NG": ("ng", "NG", "badge-ng"), "要確認": ("warn", "要確認", "badge-warn")}
@@ -71,12 +74,12 @@ for item in items:
     sev_cls = sev_map.get(sev, "badge-low")
     comment = item.get("comment", "")
     st.markdown(f"""
-    <div class="check-item {cls}">
-        <span class="check-badge {badge_cls}">{label}</span>
-        <span class="check-badge {sev_cls}">{sev}</span>
-        <div class="check-text">
-            <div class="check-category">{item.get('category', '')}</div>
-            <div class="check-title">{item.get('item', '')}</div>
-            {"<div class='check-comment'>" + comment + "</div>" if comment else ""}
-        </div>
-    </div>""", unsafe_allow_html=True)
+<div class="check-item {cls}">
+    <span class="check-badge {badge_cls}">{label}</span>
+    <span class="check-badge {sev_cls}">{sev}</span>
+    <div class="check-text">
+        <div class="check-category">{item.get('category', '')}</div>
+        <div class="check-title">{item.get('item', '')}</div>
+        {"<div class='check-comment'>" + comment + "</div>" if comment else ""}
+    </div>
+</div>""", unsafe_allow_html=True)

@@ -14,6 +14,9 @@ auth.check_auth()
 import style
 style.apply()
 
+import nav
+nav.render()
+
 CSV_PATH = Path(__file__).parent.parent.parent / "data" / "price_master.csv"
 
 st.set_page_config(page_title="単価マスター", page_icon=None, layout="wide")
@@ -43,7 +46,7 @@ edited = st.data_editor(
     }
 )
 
-if st.button("💾 保存する", type="primary"):
+if st.button("保存する", type="primary"):
     try:
         edited.to_csv(CSV_PATH, index=False, encoding="utf-8-sig")
         st.success("保存しました")

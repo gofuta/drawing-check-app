@@ -12,6 +12,9 @@ auth.check_auth()
 import style
 style.apply()
 
+import nav
+nav.render()
+
 import gas_sheets
 
 st.set_page_config(
@@ -39,12 +42,6 @@ STATUS_CHIP = {
     '要確認': 'chip-warn', 'エラー': 'chip-error',
 }
 
-# 打合せ番号 → 表示ラベルの色マッピング（ガントチャート用）
-MEET_COLORS = {
-    1: '#0A0A0A', 2: '#404040', 3: '#737373',
-    4: '#A3A3A3', 5: '#C9C9C9', 6: '#E0E0E0', 7: '#F0F0F0',
-}
-
 
 def _pip_html(dates: list, n: int) -> str:
     pips = []
@@ -68,24 +65,18 @@ def _n_meets(case: dict) -> int:
     return MEETING_COUNTS.get(case.get('product', ''), 5)
 
 
-# ── サイドバー ────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("### 案件管理")
-    st.markdown("---")
-
-    terms = gas_sheets.get_all_terms()
-    if not terms:
-        terms = []
-
-    term_options  = ['すべて'] + terms
-    selected_term = st.selectbox("表示する期", term_options, index=0)
-
-    st.markdown("---")
-    st.markdown("**新しい期を追加**")
-    new_term_input = st.text_input("期名", placeholder="例: 2026年度上期", label_visibility="collapsed")
-    if st.button("追加", use_container_width=True) and new_term_input:
-        st.session_state['_pending_term'] = new_term_input
-        st.success(f"「{new_term_input}」を登録しました。")
+# ── 期フィルター（ページ上部） ────────────────────────────
+terms = gas_sheets.get_all_terms() or []
+_fc1, _fc2, _fc3, _fc_sp = st.columns([1.8, 2.2, 1.1, 4.9])
+with _fc1:
+    selected_term = st.selectbox("表示する期", ['すべて'] + terms)
+with _fc2:
+    _new_term_input = st.text_input("新しい期名を追加", placeholder="例: 2026年度上期")
+with _fc3:
+    st.markdown('<div style="margin-top:1.72rem;"></div>', unsafe_allow_html=True)
+    if st.button("追加", use_container_width=True) and _new_term_input:
+        st.session_state['_pending_term'] = _new_term_input
+        st.success(f"「{_new_term_input}」を登録しました。")
 
 term_filter = None if selected_term == 'すべて' else selected_term
 
@@ -116,8 +107,8 @@ with tab_active:
         pips   = _pip_html(dates, n)
         stat   = _status_html(case.get('status', ''))
         term_b = f'<span class="term-badge">{case["term"]}</span>' if case.get('term') else ''
-        prod_b = (f'<span class="term-badge" style="margin-left:0.3rem;background:#0A0A0A;'
-                  f'color:white;border-color:#0A0A0A;">{case["product"]}</span>'
+        prod_b = (f'<span class="term-badge" style="margin-left:0.3rem;background:#171717;'
+                  f'color:white;border-color:#171717;">{case["product"]}</span>'
                   if case.get('product') else '')
 
         with st.container():
@@ -142,7 +133,15 @@ with tab_active:
                     with st.form(key=f"edit_{row}"):
                         st.markdown("**基本情報**")
                         new_pname  = st.text_input("物件名",  value=case.get('project_name', ''), key=f"ep_{row}")
-                        new_assign = st.text_input("担当者",  value=case.get('assignee', ''), key=f"ea_{row}")
+                        # 担当者: 既存プルダウン or 新規入力
+                        existing_assignees = gas_sheets.get_all_assignees()
+                        assignee_opts = existing_assignees + ['--- 新規入力 ---']
+                        cur_idx = assignee_opts.index(case.get('assignee', '')) if case.get('assignee') in existing_assignees else 0
+                        sel_a = st.selectbox("担当者", assignee_opts, index=cur_idx, key=f"eas_{row}")
+                        if sel_a == '--- 新規入力 ---':
+                            new_assign = st.text_input("担当者名を入力", key=f"ea_{row}")
+                        else:
+                            new_assign = sel_a
                         new_cid    = st.text_input("顧客ID",  value=case.get('customer_id', ''), key=f"ec_{row}")
                         new_cname  = st.text_input("顧客名",  value=case.get('customer_name', ''), key=f"en_{row}")
                         prod_idx   = PRODUCT_OPTIONS.index(case['product']) if case.get('product') in PRODUCT_OPTIONS else 0
@@ -221,11 +220,11 @@ with tab_done:
         for case in done_cases:
             row    = case['_row']
             term_b = f'<span class="term-badge">{case["term"]}</span>' if case.get('term') else ''
-            prod_b = (f'<span class="term-badge" style="margin-left:0.3rem;background:#0A0A0A;'
-                      f'color:white;border-color:#0A0A0A;">{case["product"]}</span>'
+            prod_b = (f'<span class="term-badge" style="margin-left:0.3rem;background:#171717;'
+                      f'color:white;border-color:#171717;">{case["product"]}</span>'
                       if case.get('product') else '')
             st.markdown(f"""
-<div class="project-card" style="opacity:0.7;">
+<div class="project-card" style="opacity:0.65;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
             <div class="pname">{case['project_name']}{term_b}{prod_b}</div>
@@ -259,14 +258,12 @@ with tab_new:
     st.markdown("#### 新しい物件を追加")
     st.caption("商品種別を選択すると、必要な打合せ回数が自動で設定されます。")
 
-    # 既存担当者をスプレッドシートから取得
     existing_assignees = gas_sheets.get_all_assignees()
 
     c1, c2 = st.columns(2)
     with c1:
         a_pname = st.text_input("物件名 *", key="na_pname")
 
-        # 担当者: 既存プルダウン or 新規入力
         assignee_options = existing_assignees + ['--- 新規入力 ---']
         sel_assignee = st.selectbox("担当者 *", assignee_options, key="na_assignee_sel")
         if sel_assignee == '--- 新規入力 ---':
@@ -315,12 +312,10 @@ with tab_schedule:
     try:
         import plotly.express as px
         import pandas as pd
-        from datetime import timedelta
 
         st.markdown("#### 打合せスケジュール")
         st.caption("各担当者の打合せ日程を月別に表示します。日程が入力されている物件のみ表示されます。")
 
-        # 全案件の打合せ日程を収集
         all_cases_sch = (
             gas_sheets.get_cases(term=term_filter, include_done=False)
             + gas_sheets.get_cases(term=term_filter, include_done=True)
@@ -335,11 +330,11 @@ with tab_schedule:
                     try:
                         d = pd.to_datetime(str(date_str).strip())
                         events.append({
-                            '担当者'  : case.get('assignee') or '未割当',
-                            '物件名'  : case.get('project_name', '—'),
-                            '打合せ'  : f'第{i}回',
-                            '開始日'  : d,
-                            '終了日'  : d + pd.Timedelta(days=3),  # 視認性のため3日幅
+                            '担当者': case.get('assignee') or '未割当',
+                            '物件名': case.get('project_name', '—'),
+                            '打合せ': f'第{i}回',
+                            '開始日': d,
+                            '終了日': d + pd.Timedelta(days=3),
                         })
                     except Exception:
                         pass
@@ -357,7 +352,7 @@ with tab_schedule:
                 y='担当者',
                 color='物件名',
                 text='打合せ',
-                hover_data={'物件名': True, '打合せ': True, '開始日': '|%Y-%m-%d', '終了日': False},
+                hover_data={'物件名': True, '打合せ': True},
             )
             fig.update_traces(
                 textposition='inside',
@@ -367,7 +362,7 @@ with tab_schedule:
             fig.update_layout(
                 plot_bgcolor='white',
                 paper_bgcolor='white',
-                font=dict(family='Inter, Noto Sans JP, sans-serif', size=12, color='#0A0A0A'),
+                font=dict(family='Inter, Noto Sans JP, sans-serif', size=12, color='#171717'),
                 height=max(280, n_staff * 60 + 120),
                 xaxis_title='',
                 yaxis_title='',
@@ -391,7 +386,6 @@ with tab_schedule:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # 月別サマリー
             st.markdown("---")
             st.markdown("**月別 打合せ件数**")
             df_g['月'] = df_g['開始日'].dt.strftime('%Y/%m')

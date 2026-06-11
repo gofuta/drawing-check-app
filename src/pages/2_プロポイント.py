@@ -13,6 +13,9 @@ auth.check_auth()
 import style
 style.apply()
 
+import nav
+nav.render()
+
 import gas_sheets
 import propoints as pp
 
@@ -30,21 +33,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if not gas_sheets.is_connected():
-    st.error("スプレッドシートに接続できません。`.env` の設定を確認してください。")
+    st.error("スプレッドシートに接続できません。Secrets の設定を確認してください。")
     st.stop()
 
-# ── サイドバー ────────────────────────────────────────
-with st.sidebar:
-    st.markdown("### プロポイント")
-    terms = gas_sheets.get_all_terms()
-    if not terms:
-        terms = []
+# ── フィルター行 ─────────────────────────────────────────
+terms = gas_sheets.get_all_terms() or []
+_fc1, _fc2, _fc_sp = st.columns([1.8, 2, 6.2])
+with _fc1:
     selected_term = st.selectbox("表示する期", ['すべて'] + terms)
-    st.markdown("---")
+with _fc2:
     view_mode = st.radio("表示モード", ['入力・編集', 'ランキング'], horizontal=True)
 
-# ── データ取得 ──────────────────────────────────────
-term_filter = None if selected_term == 'すべて' else selected_term
+# ── データ取得 ───────────────────────────────────────────
+term_filter  = None if selected_term == 'すべて' else selected_term
 cases_active = gas_sheets.get_cases(term=term_filter, include_done=False)
 cases_done   = gas_sheets.get_cases(term=term_filter, include_done=True)
 all_cases    = cases_active + cases_done
@@ -60,7 +61,7 @@ if view_mode == '入力・編集':
         st.info("この期に物件がありません。案件管理から物件を追加してください。")
         st.stop()
 
-    st.markdown(f"**{selected_term if selected_term != 'すべて' else 'すべての期'}** — {len(all_cases)} 件")
+    st.markdown(f"**{selected_term if term_filter else 'すべての期'}** — {len(all_cases)} 件")
     st.markdown("---")
     st.markdown("#### スコア入力")
 
@@ -78,13 +79,12 @@ if view_mode == '入力・編集':
             sel_hrs  = st.number_input("工数 (h)", min_value=0.0, max_value=200.0, value=60.0, step=0.5, key="pp_hrs")
 
         matched      = next((c for c in all_cases if c['project_name'] == sel_case), None)
-        sel_assignee = matched['assignee']   if matched else ''
+        sel_assignee = matched['assignee']    if matched else ''
         sel_term_v   = matched.get('term', '') if matched else ''
 
-        # 既存データがあれば上書き警告
         existing = pp_index.get(sel_case)
         if existing:
-            st.caption(f"※ 既存データあり（最終更新: {existing.get('registered_at', '—')}）。保存すると上書きします。")
+            st.caption(f"既存データあり（最終更新: {existing.get('registered_at', '—')}）。保存すると上書きします。")
 
         if st.button("保存", type="primary", use_container_width=True, key="pp_save"):
             score_save = pp.calculate(sel_prod, sel_acc, sel_hrs, sel_type)
@@ -105,28 +105,26 @@ if view_mode == '入力・編集':
             st.success(f"「{sel_case}」を保存しました — {score_save['status']}  合計: {score_save['total_score']:.3f}")
             st.rerun()
 
-    # リアルタイムスコア表示（フォーム外なので入力と同時に更新）
     with col_result:
         score = pp.calculate(sel_prod, sel_acc, sel_hrs, sel_type)
         bg, fg = pp.status_color(score['status'])
         st.markdown(f"""
-        <div class="pp-score-card">
-            <div class="score-lbl">合計スコア（リアルタイム）</div>
-            <div class="score-val">{score['total_score']:.3f}</div>
-            <div class="pp-status" style="background:{bg};color:{fg};">{score['status']}</div>
-        </div>
+<div class="pp-score-card">
+    <div class="score-lbl">合計スコア（リアルタイム）</div>
+    <div class="score-val">{score['total_score']:.3f}</div>
+    <div class="pp-status" style="background:{bg};color:{fg};">{score['status']}</div>
+</div>
         """, unsafe_allow_html=True)
         st.markdown(f"""
-        <div class="pp-breakdown" style="margin-top:0.75rem;">
-            <div class="row"><span>商品Pt ({sel_prod})</span><span><b>{score['product_pt']:.1f}</b></span></div>
-            <div class="row"><span>精度Pt ({sel_acc}%)</span><span><b>{score['accuracy_pt']:.1f}</b></span></div>
-            <div class="row"><span>工数Pt ({sel_hrs}h / {sel_type})</span><span><b>{score['workload_pt']:.1f}</b></span></div>
-            <div class="row" style="font-weight:700;"><span>合計スコア</span><span>{score['total_score']:.3f}</span></div>
-            <div class="row"><span>判定スコア (精度×工数)</span><span>{score['perf_score']:.3f}</span></div>
-        </div>
+<div class="pp-breakdown" style="margin-top:0.75rem;">
+    <div class="row"><span>商品Pt ({sel_prod})</span><span><b>{score['product_pt']:.1f}</b></span></div>
+    <div class="row"><span>精度Pt ({sel_acc}%)</span><span><b>{score['accuracy_pt']:.1f}</b></span></div>
+    <div class="row"><span>工数Pt ({sel_hrs}h / {sel_type})</span><span><b>{score['workload_pt']:.1f}</b></span></div>
+    <div class="row" style="font-weight:700;"><span>合計スコア</span><span>{score['total_score']:.3f}</span></div>
+    <div class="row"><span>判定スコア (精度×工数)</span><span>{score['perf_score']:.3f}</span></div>
+</div>
         """, unsafe_allow_html=True)
 
-    # ── 登録済み一覧 ──────────────────────────────────
     if pp_data:
         st.markdown("---")
         st.markdown("#### 登録済み")
@@ -136,24 +134,24 @@ if view_mode == '入力・編集':
             with c1:
                 term_b = f'<span class="term-badge">{d["term"]}</span>' if d.get('term') else ''
                 st.markdown(f"""
-                <div style="padding:0.5rem 0;">
-                    <span style="font-weight:600;">{d['project_name']}</span>{term_b}
-                    <span style="font-size:0.8rem;color:#6b7280;"> — {d.get('assignee','')}</span><br>
-                    <span style="font-size:0.78rem;color:#9ca3af;">{d.get('product','')} | 精度{d.get('accuracy','')}% | {d.get('hours','')}h | {d.get('building_type','')}</span>
-                </div>""", unsafe_allow_html=True)
+<div style="padding:0.5rem 0;">
+    <span style="font-weight:600;">{d['project_name']}</span>{term_b}
+    <span style="font-size:0.8rem;color:#737373;"> — {d.get('assignee','')}</span><br>
+    <span style="font-size:0.77rem;color:#ABABAB;">{d.get('product','')} | 精度{d.get('accuracy','')}% | {d.get('hours','')}h | {d.get('building_type','')}</span>
+</div>""", unsafe_allow_html=True)
             with c2:
                 st.markdown(f"""
-                <div style="padding:0.5rem 0;text-align:center;">
-                    <div style="font-size:1.3rem;font-weight:700;color:#1a4a7a;">{d.get('total_score','—')}</div>
-                    <div style="font-size:0.72rem;color:#9ca3af;">合計スコア</div>
-                </div>""", unsafe_allow_html=True)
+<div style="padding:0.5rem 0;text-align:center;">
+    <div style="font-size:1.3rem;font-weight:700;color:#171717;">{d.get('total_score','—')}</div>
+    <div style="font-size:0.72rem;color:#ABABAB;">合計スコア</div>
+</div>""", unsafe_allow_html=True)
             with c3:
                 st.markdown(f"""
-                <div style="padding:0.5rem 0;text-align:center;">
-                    <span style="background:{bg2};color:{fg2};font-size:0.78rem;padding:0.25rem 0.6rem;border-radius:20px;font-weight:600;">
-                        {d.get('status','—')}
-                    </span>
-                </div>""", unsafe_allow_html=True)
+<div style="padding:0.5rem 0;text-align:center;">
+    <span style="background:{bg2};color:{fg2};font-size:0.78rem;padding:0.25rem 0.6rem;border-radius:4px;font-weight:600;">
+        {d.get('status','—')}
+    </span>
+</div>""", unsafe_allow_html=True)
             with st.expander(f"削除 — {d['project_name']}"):
                 if st.button("このデータを削除", key=f"del_{d['_row']}", type="secondary"):
                     gas_sheets.delete_propoint(d['_row'])
@@ -188,17 +186,17 @@ else:
 
     st.markdown("")
     for i, r in enumerate(ranking):
-        icon = f"{i+1}"
+        top_cls = 'top' if i < 3 else ''
         st.markdown(f"""
-        <div class="ranking-row">
-            <div class="rank">{icon}</div>
-            <div class="name">{r['name']}</div>
-            <div style="font-size:0.8rem;color:#6b7280;">{r['count']}件</div>
-            <div style="text-align:right;">
-                <div class="pts">{r['total']:.3f}</div>
-                <div style="font-size:0.75rem;color:#9ca3af;">平均 {r['avg']:.3f}</div>
-            </div>
-        </div>
+<div class="ranking-row">
+    <div class="rank {top_cls}">{i+1}</div>
+    <div class="name">{r['name']}</div>
+    <div style="font-size:0.8rem;color:#737373;">{r['count']}件</div>
+    <div style="text-align:right;">
+        <div class="pts">{r['total']:.3f}</div>
+        <div style="font-size:0.75rem;color:#ABABAB;">平均 {r['avg']:.3f}</div>
+    </div>
+</div>
         """, unsafe_allow_html=True)
 
     st.markdown("---")
@@ -207,17 +205,16 @@ else:
         bg2, fg2 = pp.status_color(d.get('status', ''))
         term_b = f'<span class="term-badge">{d["term"]}</span>' if d.get('term') else ''
         st.markdown(f"""
-        <div style="display:flex;align-items:center;gap:1rem;padding:0.5rem 0.8rem;
-                    background:white;border-radius:10px;margin-bottom:0.4rem;
-                    box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-            <div style="flex:1;">
-                <span style="font-weight:600;">{d['project_name']}</span>{term_b}
-                <span style="font-size:0.8rem;color:#6b7280;margin-left:0.5rem;">{d.get('assignee','')}</span>
-            </div>
-            <span style="font-size:1.2rem;font-weight:700;color:#1a4a7a;">{d.get('total_score','—')}</span>
-            <span style="background:{bg2};color:{fg2};font-size:0.75rem;
-                         padding:0.2rem 0.6rem;border-radius:20px;font-weight:600;">
-                {d.get('status','—')}
-            </span>
-        </div>
+<div style="display:flex;align-items:center;gap:1rem;padding:0.6rem 1rem;
+            background:white;border:1px solid #E8E8E8;border-radius:10px;margin-bottom:0.4rem;">
+    <div style="flex:1;">
+        <span style="font-weight:600;">{d['project_name']}</span>{term_b}
+        <span style="font-size:0.8rem;color:#737373;margin-left:0.5rem;">{d.get('assignee','')}</span>
+    </div>
+    <span style="font-size:1.2rem;font-weight:700;color:#171717;">{d.get('total_score','—')}</span>
+    <span style="background:{bg2};color:{fg2};font-size:0.75rem;
+                 padding:0.2rem 0.6rem;border-radius:4px;font-weight:600;">
+        {d.get('status','—')}
+    </span>
+</div>
         """, unsafe_allow_html=True)
