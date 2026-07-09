@@ -37,13 +37,47 @@ def check_auth():
     except Exception:
         pass
 
-    _render_login(password, token)
+    _render_login(
+        password, token,
+        session_key="authenticated", query_key="auth",
+        title="設計課ポータル", subtitle="楓工務店 設計課", widget_prefix="main",
+    )
     st.stop()
 
 
-def _render_login(password: str, token: str):
+def check_owner_auth():
+    """本人（呉さん）専用ページ用の追加ゲート。全員共有のAPP_PASSWORDとは別の
+    個人パスワード（OWNER_APP_PASSWORD）を要求する。他のスタッフが共有パスワードを
+    知っていても、このページの内容は見られない。"""
+    owner_password = _get_secret("OWNER_APP_PASSWORD")
+    if not owner_password:
+        st.error("OWNER_APP_PASSWORD が設定されていません。.env / Secrets に個人用パスワードを追加してください。")
+        st.stop()
+
+    if st.session_state.get("owner_authenticated"):
+        return True
+
+    token = _daily_token(owner_password)
+
     try:
-        st.set_page_config(page_title="設計課ポータル", layout="centered")
+        if st.query_params.get("owner_auth") == token:
+            st.session_state["owner_authenticated"] = True
+            return True
+    except Exception:
+        pass
+
+    _render_login(
+        owner_password, token,
+        session_key="owner_authenticated", query_key="owner_auth",
+        title="タスク管理", subtitle="本人専用ページ", widget_prefix="owner",
+    )
+    st.stop()
+
+
+def _render_login(password: str, token: str, *, session_key: str, query_key: str,
+                   title: str, subtitle: str, widget_prefix: str):
+    try:
+        st.set_page_config(page_title=title, layout="centered")
     except Exception:
         pass
 
@@ -88,7 +122,7 @@ footer                       { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
 <div style="text-align:center;margin-bottom:2.8rem;">
     <div style="
         display:inline-flex;align-items:center;justify-content:center;
@@ -97,10 +131,10 @@ footer                       { display: none !important; }
         <span style="color:white;font-size:1.4rem;font-weight:700;letter-spacing:-0.03em;">楓</span>
     </div>
     <h1 style="font-size:1.5rem;font-weight:700;letter-spacing:-0.04em;margin:0 0 0.35rem;color:#0A0A0A;">
-        設計課ポータル
+        {title}
     </h1>
     <p style="font-size:0.72rem;color:#A3A3A3;margin:0;letter-spacing:0.12em;text-transform:uppercase;">
-        楓工務店 設計課
+        {subtitle}
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -110,15 +144,15 @@ footer                       { display: none !important; }
         type="password",
         placeholder="パスワードを入力",
         label_visibility="collapsed",
-        key="login_pw",
+        key=f"login_pw_{widget_prefix}",
     )
-    login_btn = st.button("ログイン", use_container_width=True)
+    login_btn = st.button("ログイン", use_container_width=True, key=f"login_btn_{widget_prefix}")
 
     if login_btn:
         if pw_input == password:
-            st.session_state["authenticated"] = True
+            st.session_state[session_key] = True
             try:
-                st.query_params["auth"] = token
+                st.query_params[query_key] = token
             except Exception:
                 pass
             st.rerun()

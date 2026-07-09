@@ -1,6 +1,7 @@
 """Google Sheets操作モジュール — BPM自動化スプレッドシート"""
 
 import os
+import random
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -42,6 +43,20 @@ PP_HEADER = ['物件名', '担当者', '期名', '商品種別', '精度%', '工
 CASE_SHEET_NAME = '案件管理'
 PP_SHEET_NAME   = 'プロポイント'
 
+# ==================== タスク管理シート 列定義 ====================
+# A(0):ID B(1):担当者 C(2):案件名 D(3):タスク内容 E(4):期限 F(5):状態
+# G(6):追加日時 H(7):完了日時 I(8):BPM登録 J(9):メモ
+# ※ GAS側 taskSheet.gs（設計課BPM自動化プロジェクト）と同じシートを読み書きする。
+#   列構成・IDフォーマット（'T'+timestamp+2桁乱数）を合わせること。
+# 案件名は物件に紐づくタスクのみ入力（案件管理シートの物件名と合わせる）。物件外の業務は空欄でよい。
+TASK_COLS = {
+    'id': 0, 'assignee': 1, 'project_name': 2, 'content': 3, 'due': 4, 'status': 5,
+    'created_at': 6, 'completed_at': 7, 'bpm_status': 8, 'memo': 9,
+}
+TASK_HEADER = ['ID', '担当者', '案件名', 'タスク内容', '期限', '状態',
+               '追加日時', '完了日時', 'BPM登録', 'メモ']
+TASK_SHEET_NAME = 'タスク管理'
+
 
 @st.cache_resource(show_spinner=False)
 def _get_client() -> gspread.Client | None:
@@ -81,8 +96,29 @@ def is_connected() -> bool:
     return _get_spreadsheet() is not None
 
 
-def _ensure_sheet(name: str, header: list) -> gspread.Worksheet | None:
-    ss = _get_spreadsheet()
+@st.cache_resource(show_spinner=False)
+def _get_task_spreadsheet() -> gspread.Spreadsheet | None:
+    """呉さん専用のタスク管理スプレッドシート（案件管理とは別ファイル）。"""
+    client = _get_client()
+    if client is None:
+        return None
+    try:
+        sheet_id = os.getenv('TASK_SHEET_ID') or st.secrets.get('TASK_SHEET_ID', '')
+    except Exception:
+        sheet_id = os.getenv('TASK_SHEET_ID', '')
+    if not sheet_id:
+        return None
+    try:
+        return client.open_by_key(sheet_id)
+    except Exception:
+        return None
+
+
+def is_task_connected() -> bool:
+    return _get_task_spreadsheet() is not None
+
+
+def _ensure_sheet_in(ss: gspread.Spreadsheet | None, name: str, header: list) -> gspread.Worksheet | None:
     if ss is None:
         return None
     try:
@@ -91,6 +127,14 @@ def _ensure_sheet(name: str, header: list) -> gspread.Worksheet | None:
         ws = ss.add_worksheet(title=name, rows=500, cols=len(header))
         ws.append_row(header)
     return ws
+
+
+def _ensure_sheet(name: str, header: list) -> gspread.Worksheet | None:
+    return _ensure_sheet_in(_get_spreadsheet(), name, header)
+
+
+def _ensure_task_sheet(name: str, header: list) -> gspread.Worksheet | None:
+    return _ensure_sheet_in(_get_task_spreadsheet(), name, header)
 
 
 def _rows_to_dicts(rows: list[list], col_map: dict) -> list[dict]:
@@ -226,6 +270,102 @@ def save_propoint(data: dict, row_number: int | None = None):
 
 def delete_propoint(row_number: int):
     ws = _ensure_sheet(PP_SHEET_NAME, PP_HEADER)
+    if ws is None:
+        return
+    ws.delete_rows(row_number)
+
+
+# ==================== タスク管理 ====================
+# 呉さん本人・部下のタスクを管理する。GAS Web App（secretaryエージェント）と
+# 同じ「タスク管理」シートを読み書きするため、IDフォーマット・列構成を合わせている。
+
+def _generate_task_id() -> str:
+    stamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    return f'T{stamp}{random.randint(10, 99)}'
+
+
+def get_tasks(assignee: str | None = None, status: str | None = None,
+              include_done: bool = False, project_name: str | None = None) -> list[dict]:
+    ws = _ensure_task_sheet(TASK_SHEET_NAME, TASK_HEADER)
+    if ws is None:
+        return []
+    all_rows = ws.get_all_values()
+    if len(all_rows) <= 1:
+        return []
+    data = _rows_to_dicts(all_rows[1:], TASK_COLS)
+    data = [d for d in data if d.get('id')]
+    if assignee:
+        data = [d for d in data if d.get('assignee', '') == assignee]
+    if project_name:
+        data = [d for d in data if d.get('project_name', '') == project_name]
+    if status:
+        data = [d for d in data if d.get('status', '') == status]
+    elif not include_done:
+        data = [d for d in data if d.get('status', '') != '完了']
+    return data
+
+
+def get_all_task_assignees() -> list[str]:
+    ws = _ensure_task_sheet(TASK_SHEET_NAME, TASK_HEADER)
+    if ws is None:
+        return []
+    all_rows = ws.get_all_values()
+    if len(all_rows) <= 1:
+        return []
+    seen = []
+    for row in all_rows[1:]:
+        row = list(row) + [''] * (len(TASK_HEADER) - len(row))
+        a = str(row[TASK_COLS['assignee']]).strip()
+        if a and a not in seen:
+            seen.append(a)
+    return seen
+
+
+def add_task(assignee: str, content: str, due: str = '', memo: str = '',
+             project_name: str = '') -> str:
+    ws = _ensure_task_sheet(TASK_SHEET_NAME, TASK_HEADER)
+    if ws is None:
+        return ''
+    task_id = _generate_task_id()
+    now = datetime.now().strftime('%Y/%m/%d %H:%M:%S')
+    row = [''] * len(TASK_HEADER)
+    row[TASK_COLS['id']] = task_id
+    row[TASK_COLS['assignee']] = assignee or '呉'
+    row[TASK_COLS['project_name']] = project_name
+    row[TASK_COLS['content']] = content
+    row[TASK_COLS['due']] = due
+    row[TASK_COLS['status']] = '未着手'
+    row[TASK_COLS['created_at']] = now
+    row[TASK_COLS['bpm_status']] = '未登録'
+    row[TASK_COLS['memo']] = memo
+    ws.append_row(row)
+    return task_id
+
+
+def update_task_field(row_number: int, field: str, value):
+    ws = _ensure_task_sheet(TASK_SHEET_NAME, TASK_HEADER)
+    if ws is None:
+        return
+    col_idx = TASK_COLS.get(field)
+    if col_idx is None:
+        return
+    col_letter = chr(ord('A') + col_idx)
+    ws.update(f'{col_letter}{row_number}', [[value]])
+
+
+def complete_task(row_number: int):
+    now = datetime.now().strftime('%Y/%m/%d %H:%M:%S')
+    update_task_field(row_number, 'status', '完了')
+    update_task_field(row_number, 'completed_at', now)
+
+
+def reopen_task(row_number: int):
+    update_task_field(row_number, 'status', '未着手')
+    update_task_field(row_number, 'completed_at', '')
+
+
+def delete_task(row_number: int):
+    ws = _ensure_task_sheet(TASK_SHEET_NAME, TASK_HEADER)
     if ws is None:
         return
     ws.delete_rows(row_number)

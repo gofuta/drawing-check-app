@@ -276,6 +276,34 @@ body { background: #F7F8FA !important; }
     letter-spacing: 0.03em;
 }
 
+/* ══ タスクカード ══ */
+.task-card {
+    background: #FFFFFF;
+    border: 1px solid #E8E8E8;
+    border-radius: 10px;
+    padding: 0.9rem 1.2rem;
+    margin-bottom: 0.45rem;
+    border-left: 3px solid #E8E8E8;
+    transition: border-color 0.12s;
+}
+.task-card.due-overdue { border-left-color: #DC2626; background: #FFFCFC; }
+.task-card.due-today   { border-left-color: #D97706; background: #FFFDF5; }
+.task-card.due-soon    { border-left-color: #1D4ED8; }
+.task-card .t-content  { font-size: 0.9rem; font-weight: 600; color: #171717; }
+.task-card .t-meta      { font-size: 0.76rem; color: #737373; margin-top: 0.15rem; }
+.task-card .t-due-badge {
+    display: inline-block;
+    font-size: 0.66rem;
+    font-weight: 600;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+    background: #F5F5F5; color: #525252; border: 1px solid #E8E8E8;
+}
+.t-due-badge.due-overdue { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+.t-due-badge.due-today   { background: #FFFBEB; color: #B45309; border-color: #FDE68A; }
+.t-due-badge.due-soon    { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+
 /* ══ 所見ボックス ══ */
 .summary-box {
     background: #FAFAFA;
